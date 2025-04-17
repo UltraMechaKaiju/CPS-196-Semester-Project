@@ -1,6 +1,7 @@
 
 import copy
 import random
+from typing import Self
 import pygame
 import sys
 
@@ -29,9 +30,12 @@ class playerCharacter(pygame.sprite.Sprite):
       super().__init__(*groups)
       #self.spriteSheet[] = 
       #PPos: center of the characters hit box
+      self.movementMode = 0;
       self.PPos = startLocation
       self.hitbox = pygame.Rect((0,0),(50,100))
-      self.velocity = 0.0
+      
+      self.velocity = pygame.Vector2(0,0)
+      self.acceleration = pygame.Vector2(0,0)
       self.colorBlock = pygame.surface.Surface(size = (self.hitbox.width,self.hitbox.height),)
       self.colorBlock.fill("Green")
 
@@ -39,7 +43,7 @@ class worldObject(pygame.sprite.Sprite):
     def __init__(self, startLocation: pygame.Vector2, *groups):
       super().__init__(*groups)
       self.pos = startLocation
-      self.hitbox = pygame.Rect((0,0),(100,500))
+      self.hitbox = pygame.Rect((startLocation),(100,500))
       self.colorBlock = pygame.surface.Surface(size = (self.hitbox.height,self.hitbox.width),)
       self.colorBlock.fill("Red")
 class Scene():
@@ -58,14 +62,52 @@ class Scene():
 def packageWorldGroup(targetGroup):
     worldPrint = []
     for sprite in targetGroup.sprites():
-        worldPrint.append((sprite.colorBlock,((sprite.pos.x + worldOffset.x,sprite.pos.y + worldOffset.y))))
+        worldPrint.append((sprite.colorBlock, sprite.hitbox.topleft + worldOffset))
     return worldPrint
 
-def moveWorldOffset(moveVec, targetCharacter: playerCharacter, currentScene: Scene):
+
+
+#movement stuff
+
+#these functions decide how the character should move, the move world and camera function actually moves the character using the final output
+
+#movement Abilties
+def Jump(targetCharacter: playerCharacter):
+    pressed = pygame.key.get_pressed()
+    if pressed[pygame.K_SPACE]:
+        targetCharacter.acceleration -= pygame.Vector2(0,100)
+
+
+#movement Modes
+#mode 0
+def PhysFalling(targetCharacter: playerCharacter) -> pygame.Vector2:
+    #check: should change movement Mode?
+
+    #fall
+
+    targetCharacter.acceleration += pygame.Vector2(0,9.8);
+
+    #Add player input
+    pressed = pygame.key.get_pressed()
+    if pressed[pygame.K_a]:
+        targetCharacter.acceleration -= pygame.Vector2(10,0)
+    if pressed[pygame.K_d]:
+        targetCharacter.acceleration += pygame.Vector2(10,0)
+
+
+
+def moveWorldOffset(acceleration, targetCharacter: playerCharacter, currentScene: Scene):
     #calculates character offset and global offset(camera location) as well as character position
 
-    #Part 1: move the character
-    targetCharacter.PPos += moveVec
+    #Save old position
+    oldPosition = pygame.Vector2(targetCharacter.PPos.x,targetCharacter.PPos.y)
+
+    #Part 1: apply acceleration
+    targetCharacter.velocity += pygame.Vector2(targetCharacter.acceleration.x,targetCharacter.acceleration.y)
+
+    targetCharacter.PPos += targetCharacter.velocity
+
+
     # apply world boundry check
     #Check for collisions with the left and top of the world
     if targetCharacter.PPos.y <= targetCharacter.hitbox.height/2:
@@ -105,6 +147,11 @@ def moveWorldOffset(moveVec, targetCharacter: playerCharacter, currentScene: Sce
         characterOffset.x = currentScene.cameraExtents.x - (currentScene.worldExtents.x - targetCharacter.PPos.x)
         cameraOffset.x = (currentScene.worldExtents.x - (currentScene.cameraExtents.x / 2))
 
+    #update character Velocity
+    targetCharacter.acceleration = pygame.Vector2(0,0)
+    targetCharacter.velocity =  targetCharacter.PPos - oldPosition 
+
+
     #set equal to worldOffset and characterOffset and PPos of player character
     return -cameraOffset, characterOffset - (pygame.Vector2((targetCharacter.hitbox.x/2),(targetCharacter.hitbox.y/2))), targetCharacter.PPos
 
@@ -117,13 +164,15 @@ testImage = pygame.transform.smoothscale(pygame.image.load("images/288_1_honda_v
 score = scoreFont.render("score:", False, "Green")
 
 characterSprite = playerCharacter(pygame.Vector2(1920/2,1080/2), characterElements)
-firstObject = worldObject(pygame.Vector2(100,100), worldObjects)
-secondObject = worldObject(pygame.Vector2(200,200), worldObjects)
+firstObject = worldObject(pygame.Vector2(0,0), worldObjects)
+secondObject = worldObject(pygame.Vector2(100,100), worldObjects)
 testScene = Scene(pygame.Vector2(1920,1080), pygame.Vector2(500,500), pygame.Vector2(0,0), worldObject)
 
 worldOffset = pygame.Vector2()
 desiredMove = pygame.Vector2()
 print(worldObjects)
+
+#characterSprite.hitbox.topleft
 
 while True:
     for event in pygame.event.get():
@@ -131,23 +180,27 @@ while True:
             print("test", worldOffset)
             pygame.quit()
             sys.exit()
+    #region simple movement
+    # desiredMove = pygame.Vector2(0,0)
+    # pressed = pygame.key.get_pressed()
+    # if pressed[pygame.K_w]:
+    #    desiredMove.y -= 10
+    # if pressed[pygame.K_s]:
+    #    desiredMove.y += 10
+    # if pressed[pygame.K_a]:
+    #    desiredMove.x -= 10
+    # if pressed[pygame.K_d]:
+    #    desiredMove.x += 10
+    # if (desiredMove != pygame.Vector2(0,0)):
+    #     desiredMove = desiredMove.normalize() * 5
+    #endregion
 
-    desiredMove = pygame.Vector2(0,0)
-    pressed = pygame.key.get_pressed()
-    if pressed[pygame.K_w]:
-       desiredMove.y -= 10
-    if pressed[pygame.K_s]:
-       desiredMove.y += 10
-    if pressed[pygame.K_a]:
-       desiredMove.x -= 10
-    if pressed[pygame.K_d]:
-       desiredMove.x += 10
-    if (desiredMove != pygame.Vector2(0,0)):
-        desiredMove = desiredMove.normalize() * 5
+    PhysFalling(characterSprite)
+    Jump(characterSprite)
 
-    #print(desiredMove * 100)
-    worldOffset, testScene.characterOffset, characterSprite.PPos = moveWorldOffset(desiredMove, characterSprite, testScene)
-    print(characterSprite.PPos, worldOffset,testScene.characterOffset)
+
+    worldOffset, testScene.characterOffset, characterSprite.PPos = moveWorldOffset(characterSprite.acceleration, characterSprite, testScene)
+    print(characterSprite.velocity, characterSprite.PPos, worldOffset,testScene.characterOffset)
     backgroundBlock = pygame.surface.Surface((screen.get_rect().width, screen.get_rect().height))
 
     backgroundBlock.fill("White")

@@ -2,12 +2,13 @@ import random
 import numpy as np
 import pygame
 import sys
-
 from pygame.draw import polygon
 import pygame.key
 
 pygame.init()
 clock = pygame.time.Clock()
+
+
 
 
 #screen settings
@@ -24,6 +25,8 @@ characterElements = pygame.sprite.Group()
 worldObjects = pygame.sprite.Group()
 collisionPolyObjects = pygame.sprite.Group()
 collisionRectObjects = pygame.sprite.Group()
+scene1 = pygame.sprite.Group()
+scene2 = pygame.sprite.Group()
 
 #classes
 class playerCharacter(pygame.sprite.Sprite):
@@ -107,8 +110,9 @@ def packageWorldGroup(targetGroup, worldOffset):
 #movement Abilties
 def Jump(targetCharacter: playerCharacter):
     pressed = pygame.key.get_pressed()
-    if pressed[pygame.K_SPACE] and targetCharacter.movementMode == 1:
-        targetCharacter.velocity[1] = -45
+    if pressed[pygame.K_SPACE]:
+        print("fire 2")
+        targetCharacter.velocity.y = -5
         targetCharacter.movementMode = 0
 
 
@@ -138,6 +142,14 @@ def moveWorldOffset(acceleration, targetCharacter: playerCharacter, currentScene
 
     #Part 1: apply acceleration
     targetCharacter.velocity += pygame.Vector2(targetCharacter.acceleration.x,targetCharacter.acceleration.y)
+    #limit velocity
+
+    if targetCharacter.velocity.x > 20:
+        targetCharacter.velocity.x = 20
+    if targetCharacter.velocity.x < -20:
+        targetCharacter.velocity.x = -20
+
+    print(targetCharacter.velocity)
 
     targetCharacter.hitbox.topleft = ((targetCharacter.hitbox.topleft[0] + targetCharacter.velocity.x),(targetCharacter.hitbox.topleft[1] + targetCharacter.velocity.y))
 
@@ -162,6 +174,7 @@ def moveWorldOffset(acceleration, targetCharacter: playerCharacter, currentScene
     targetCharacter.acceleration = pygame.Vector2(0,0)
     targetCharacter.velocity =  targetCharacter.hitbox.topleft  - oldPosition
 
+
     #part2: detect object collisions
 
     #simple collision for rectangles
@@ -171,7 +184,7 @@ def moveWorldOffset(acceleration, targetCharacter: playerCharacter, currentScene
 
     targetCharacter.movementMode = 0
 
-    for rect in collisionRectObjects.sprites():
+    for rect in currentScene.startingObjects.sprites():
         if targetCharacter.hitbox.colliderect(rect.hitbox):
             #positive Result
             xDeltaRightward = rect.hitbox.right - targetCharacter.hitbox.left
@@ -209,7 +222,7 @@ def moveWorldOffset(acceleration, targetCharacter: playerCharacter, currentScene
                     targetCharacter.hitbox.left = rect.hitbox.right
     targetCharacter.acceleration = pygame.Vector2(0,0)
     targetCharacter.velocity =  targetCharacter.hitbox.topleft  - oldPosition
-
+    
 
 
 
@@ -288,22 +301,22 @@ def moveWorldOffset(acceleration, targetCharacter: playerCharacter, currentScene
 
     #modify camaera position in case the player is towards the top or lefft edge of the world border
     
-    cameraOffset = pygame.Vector2(targetCharacter.hitbox.left,targetCharacter.hitbox.top)
-    characterOffset = pygame.Vector2(currentScene.cameraExtents.x/2, currentScene.cameraExtents.y/2)
+    cameraOffset = pygame.Vector2(targetCharacter.hitbox.centerx,targetCharacter.hitbox.centery)
+    characterOffset = pygame.Vector2((currentScene.cameraExtents.x/2) - (targetCharacter.hitbox.width/2), (currentScene.cameraExtents.y/2) - (targetCharacter.hitbox.height/2))
 
-    if targetCharacter.hitbox.top <= currentScene.cameraExtents.y/2:
+    if targetCharacter.hitbox.centery <= currentScene.cameraExtents.y/2:
         characterOffset.y = targetCharacter.hitbox.top
         cameraOffset.y = currentScene.cameraExtents.y/2
-    if targetCharacter.hitbox.left <= currentScene.cameraExtents.x/2:
+    if targetCharacter.hitbox.centerx <= currentScene.cameraExtents.x/2:
         characterOffset.x = targetCharacter.hitbox.left
         cameraOffset.x = currentScene.cameraExtents.x/2
 
     #modify camaera position in case the player is towards the bottom or right edge of the world border
 
-    if (targetCharacter.hitbox.bottom >= currentScene.worldExtents.y - (currentScene.cameraExtents.y/2)):
+    if (targetCharacter.hitbox.bottom - (targetCharacter.hitbox.height/2) >= currentScene.worldExtents.y - (currentScene.cameraExtents.y/2)):
         characterOffset.y = currentScene.cameraExtents.y - (currentScene.worldExtents.y - targetCharacter.hitbox.top)
         cameraOffset.y = (currentScene.worldExtents.y - (currentScene.cameraExtents.y / 2))
-    if (targetCharacter.hitbox.right >= currentScene.worldExtents.x - (currentScene.cameraExtents.x/2)):
+    if (targetCharacter.hitbox.right - (targetCharacter.hitbox.width/2) >= currentScene.worldExtents.x - (currentScene.cameraExtents.x/2)):
         characterOffset.x = currentScene.cameraExtents.x - (currentScene.worldExtents.x - targetCharacter.hitbox.left)
         cameraOffset.x = (currentScene.worldExtents.x - (currentScene.cameraExtents.x / 2))
 
@@ -321,16 +334,33 @@ score = scoreFont.render("score:", False, "Green")
 
 characterSprite = playerCharacter(pygame.Vector2(5,5), characterElements)
 
+#region scenes
+#region scene 1
 #firstObject = worlRectObject(pygame.Vector2(500,0), pygame.Vector2(1920/2,1080/2), "Red", collisionRectObjects)
-secondObject = worlRectObject(pygame.Vector2(1920/2 + 500,1080/2), pygame.Vector2(1920/2,1080/2), "Blue", collisionRectObjects)
-thirdObject = worlRectObject(pygame.Vector2(1920/2 + 500,0), pygame.Vector2(1920/2,1080/2), "Black", collisionRectObjects)
-fourthObject = worlRectObject(pygame.Vector2(500,1080/2), pygame.Vector2(1920/2,1080/2), "Purple", collisionRectObjects)
-sixthObject = worlRectObject(pygame.Vector2(0,150), pygame.Vector2(300,100), "Purple", collisionRectObjects)
-seventhObject = worlRectObject(pygame.Vector2(200,500), pygame.Vector2(300,100), "Purple", collisionRectObjects)
+secondObject = worlRectObject(pygame.Vector2(1920/2 + 500,1080/2), pygame.Vector2(1920/2,1080/2), "Blue", collisionRectObjects, scene1)
+thirdObject = worlRectObject(pygame.Vector2(1920/2 + 500,0), pygame.Vector2(1920/2,1080/2), "Black", collisionRectObjects, scene1)
+fourthObject = worlRectObject(pygame.Vector2(500,1080/2), pygame.Vector2(1920/2,1080/2), "Purple", collisionRectObjects, scene1)
+sixthObject = worlRectObject(pygame.Vector2(0,150), pygame.Vector2(300,100), "Purple", collisionRectObjects, scene1)
+seventhObject = worlRectObject(pygame.Vector2(200,500), pygame.Vector2(300,100), "Purple", collisionRectObjects, scene1)
 
 testPolygon = CollisionPolygon("red", [(0,0), (100,0),(100,-100), (0,-100)], collisionPolyObjects)
 
-testScene = Scene(pygame.Vector2(1920*4,1080*4), pygame.Vector2(1920,1080), pygame.Vector2(0,0), worlRectObject)
+testScene = Scene(pygame.Vector2(1920*4,1080*4), pygame.Vector2(1920,1080), pygame.Vector2(0,0), scene1)
+#endregion
+#region Scene 2
+
+WorldBottom = worlRectObject(pygame.Vector2(0, 1055*2), pygame.Vector2(1920 * 2, 50), "black", collisionRectObjects, scene2)
+test = worlRectObject(pygame.Vector2(1600 * 2, 900*2), pygame.Vector2(500, 50), "black", collisionRectObjects, scene2)
+test2 = worlRectObject(pygame.Vector2(0, 900*2), pygame.Vector2(500, 50), "black", collisionRectObjects, scene2)
+test3 = worlRectObject(pygame.Vector2(0, 100), pygame.Vector2(500, 50), "black", collisionRectObjects, scene2)
+
+
+scene2 = Scene(pygame.Vector2(1920*2,1080*2), pygame.Vector2(1920,1080), pygame.Vector2(1920/2,1080/2), scene2)
+#endregion
+#endregion
+
+#World Settings
+currentScene = scene2
 
 worldOffset = pygame.Vector2()
 desiredMove = pygame.Vector2()
@@ -362,13 +392,14 @@ while True:
     #     desiredMove = desiredMove.normalize() * 5
     #endregion
     
-
+    print(characterSprite.movementMode)
     PhysFalling(characterSprite)
+    Jump(characterSprite)
     if characterSprite.movementMode == 1:
         Jump(characterSprite)
 
 
-    worldOffset, testScene.characterOffset, characterSprite.PPos = moveWorldOffset(characterSprite.acceleration, characterSprite, testScene)
+    worldOffset, currentScene.characterOffset, characterSprite.PPos = moveWorldOffset(characterSprite.acceleration, characterSprite, currentScene)
     #print(characterSprite.acceleration, characterSprite.velocity, "C:",characterSprite.hitbox.topleft, testScene.characterOffset, worldOffset)
     backgroundBlock = pygame.surface.Surface((screen.get_rect().width, screen.get_rect().height))
 
@@ -378,11 +409,13 @@ while True:
     
     #screen.blit(testImage, (0,0))
     #screen.blit(testScene.cameraBlock, (0,0))
-    screen.blits(packageWorldGroup(collisionRectObjects, worldOffset))
+    screen.blits(packageWorldGroup(currentScene.startingObjects, worldOffset))
     #pygame.draw.line(screen, "Black", (0,0), (1000,1000))
-    screen.blit(characterSprite.colorBlock, pygame.Vector2((testScene.characterOffset.x), (testScene.characterOffset.y)))
+    screen.blit(characterSprite.colorBlock, pygame.Vector2((currentScene.characterOffset.x), (currentScene.characterOffset.y)))
     pygame.draw.rect(screen, "Red", characterSprite.hitbox, 5)
     pygame.draw.rect(screen, "Red", characterSprite.getGroundHitbox(), 5)
+    pygame.draw.circle(screen, "Red", currentScene.cameraExtents.xy/2, 1)
+    pygame.draw.circle(screen, "Red", (1920/2, 1080-100), 1)
     screen.blit(score, (random.randrange(0,50),0))
     
     pygame.display.update()
